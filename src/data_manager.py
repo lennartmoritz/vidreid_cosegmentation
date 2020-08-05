@@ -9,10 +9,185 @@ import zipfile
 import os.path as osp
 from scipy.io import loadmat
 import numpy as np
+import pickle
 
 from utils import mkdir_if_missing, write_json, read_json
 
 """Dataset classes"""
+
+
+class PDESTRE(object):
+    """P-DESTRE.
+
+    Reference:
+        Kumar et al. The P-DESTRE: A Fully Annotated Dataset for Pedestrian Detection,
+        Tracking, Re-Identification and Search from Aerial Devices. arXiv:2004.02782, 2020
+
+    URL: `<http://p-destre.di.ubi.pt/index.html>`_
+
+    Dataset statistics:
+        - identities: ?.
+        - images: ? (train) + ? (query) + ? (gallery).
+        - cameras (locations/videos): 75
+    """
+    dataset_dir = "P-DESTRE-processed"
+    splits_dir = "Splits"
+    image_dir = "reid/BBox_images"
+    vid2cam_file = "reid/video2camid.pkl"
+    tracklet_file = "reid/Tracklets.npy"
+
+    def __init__(self, root="E:/Bachelorarbeit - Daten/", split_id=0, **kwargs):
+        # load variables
+        self.root = osp.abspath(osp.expanduser(root))
+        self.dataset_dir = osp.join(self.root, self.dataset_dir)
+        self.splits_dir = osp.join(self.dataset_dir, self.splits_dir)
+        self.image_dir = osp.join(self.dataset_dir, self.image_dir)
+        self.vid2cam_file = osp.join(self.dataset_dir, self.vid2cam_file)
+        self.tracklet_file = osp.join(self.dataset_dir, self.tracklet_file)
+        self.split_id = split_id
+
+        # check files
+        required_files = [
+            self.dataset_dir, self.splits_dir,
+            self.image_dir, self.vid2cam_file,
+            self.tracklet_file
+        ]
+        self.check_before_run(required_files)
+
+        # load preprocessed data
+        self.all_tracklets = np.load(self.tracklet_file, mmap_mode="r", allow_pickle=True)
+        with open(self.vid2cam_file, "rb") as f:
+            self.video2camid = pickle.load(f)
+
+        # get tracklets for selected train/query/gallery split
+        train_split_file = osp.join(self.splits_dir, f"Train_{self.split_id}.txt")
+        track_train = self.extract_tracklets(train_split_file)
+
+        query_split_file = osp.join(self.splits_dir, f"Query_{self.split_id}.txt")
+        track_query = self.extract_tracklets(query_split_file)
+
+        gallery_split_file = osp.join(self.splits_dir, f"Gallery_{self.split_id}.txt")
+        track_gallery = self.extract_tracklets(gallery_split_file)
+
+        # get the data
+        train, self.num_train_pids, num_train_imgs = self.process_data(track_train, relabel=True)
+
+        query, self.num_query_pids, num_query_imgs = self.process_data(track_query, relabel=False)
+
+        gallery, self.num_gallery_pids, num_gallery_imgs = self.process_data(track_gallery, relabel=False)
+
+        self.train = train
+        num_train_tracklets = len(train)
+
+        self.query = query
+        num_query_tracklets = len(query)
+
+        self.gallery = gallery
+        num_gallery_tracklets = len(gallery)
+
+        num_imgs_per_tracklet = num_train_imgs + num_query_imgs + num_gallery_imgs
+        min_num = np.min(num_imgs_per_tracklet)
+        max_num = np.max(num_imgs_per_tracklet)
+        avg_num = np.mean(num_imgs_per_tracklet)
+
+        num_total_pids = self.num_train_pids + self.num_query_pids
+        num_total_tracklets = num_train_tracklets + num_query_tracklets + num_gallery_tracklets
+
+        print("=> P-DESTRE loaded")
+        print("Dataset statistics:")
+        print("  ------------------------------")
+        print("  subset   | # ids | # tracklets")
+        print("  ------------------------------")
+        print("  train    | {:5d} | {:8d}".format(self.num_train_pids, num_train_tracklets))
+        print("  query    | {:5d} | {:8d}".format(self.num_query_pids, num_query_tracklets))
+        print("  gallery  | {:5d} | {:8d}".format(self.num_gallery_pids, num_gallery_tracklets))
+        print("  ------------------------------")
+        print("  total    | {:5d} | {:8d}".format(num_total_pids, num_total_tracklets))
+        print("  number of images per tracklet: {} ~ {}, average {:.1f}".format(min_num, max_num, avg_num))
+        print("  ------------------------------")
+
+    def extract_tracklets(self, split_file):
+        # find all camids referenced by the split
+        videos_in_split = []
+        with open(split_file, "r") as f:
+            for line in f:
+                new_line = line.rstrip()
+                videos_in_split.append(new_line)
+        videos_in_split.sort()
+        camids_in_split = [self.video2camid[name + ".MP4"] for name in videos_in_split]
+
+        # extract the tracklets with matching camids
+        requested_tracklets = np.empty((0, 4), int)
+        for camid in camids_in_split:
+            pos = np.where(self.all_tracklets[:, 3] == camid)
+            new_tracklet = self.all_tracklets[pos]
+            requested_tracklets = np.concatenate((requested_tracklets, new_tracklet))
+
+        assert requested_tracklets.size != 0, f"Error: Found no tracklets for {split_file}"
+        return requested_tracklets
+
+    def process_data(self, tracklets, relabel=False, min_seq_len=0):
+        num_tracklets = tracklets.shape[0]
+        pid_list = list(set(tracklets[:, 2].tolist()))
+        num_pids = len(pid_list)
+
+        if relabel:
+            pid2label = {pid: label for label, pid in enumerate(pid_list)}
+
+        processed_tracklets = []
+        num_imgs_per_tracklet = []
+
+        for index in range(num_tracklets):
+            data = tracklets[index, ...]
+            start_index, end_index, pid, camid = data
+            if pid == -1:
+                continue  # junk images are just ignored
+            assert 0 <= camid <= 74
+
+            img_names = [
+                f"{pid:04}C{camid:02}F{frame_pos:05}.jpg"
+                for frame_pos in range(start_index, end_index + 1)
+            ]
+
+            if relabel:
+                pid = pid2label[pid]
+
+            # make sure image names correspond to the same person
+            pnames = [img_name[:4] for img_name in img_names]
+            assert len(
+                set(pnames)
+            ) == 1, 'Error: a single tracklet contains different person images'
+
+            # make sure all images are captured under the same camera
+            camnames = [img_name[5:7] for img_name in img_names]
+            assert len(
+                set(camnames)
+            ) == 1, 'Error: images are captured under different cameras!'
+
+            # append image names with directory information
+            img_paths = [
+                osp.join(self.image_dir, img_name[:4], img_name)
+                for img_name in img_names
+            ]
+            if len(img_paths) >= min_seq_len:
+                img_paths = tuple(img_paths)
+                processed_tracklets.append((img_paths, pid, camid))
+                num_imgs_per_tracklet.append(len(img_paths))
+
+        return processed_tracklets, num_pids, num_imgs_per_tracklet
+
+    def check_before_run(self, required_files):
+        """Checks if required files exist before going deeper.
+
+        Args:
+            required_files (str or list): string file name(s).
+        """
+        if isinstance(required_files, str):
+            required_files = [required_files]
+
+        for fpath in required_files:
+            if not osp.exists(fpath):
+                raise RuntimeError('"{}" is not found'.format(fpath))
 
 
 class Mars(object):
@@ -488,6 +663,7 @@ class iLIDSVID(object):
 """Create dataset"""
 
 __factory = {
+    'pdestre': PDESTRE,
     'mars': Mars,
     'ilidsvid': iLIDSVID,
     'dukemtmcvidreid': DukeMTMCVidReID,
