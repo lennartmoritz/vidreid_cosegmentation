@@ -40,7 +40,7 @@ parser.add_argument('--width', type=int, default=128,
                     help="width of an image (default: 128)")
 parser.add_argument('--seq-len', type=int, default=4,
                     help="number of images to sample in a tracklet")
-parser.add_argument('--test-num-tracks', type=int, default=1,
+parser.add_argument('--test-num-tracks', type=int, default=16,
                     help="number of tracklets to pass to GPU during test (to avoid OOM error)")
 # Optimization options
 parser.add_argument('--max-epoch', default=800, type=int,
@@ -156,14 +156,14 @@ def main():
         VideoDataset(dataset.query, seq_len=args.seq_len,
                      sample='dense', transform=transform_test),
         batch_size=args.test_batch, shuffle=False, num_workers=args.workers,
-        pin_memory=pin_memory, drop_last=False,
+        pin_memory=False, drop_last=False,
     )
 
     galleryloader = DataLoader(
         VideoDataset(dataset.gallery, seq_len=args.seq_len,
                      sample='dense', transform=transform_test),
         batch_size=args.test_batch, shuffle=False, num_workers=args.workers,
-        pin_memory=pin_memory, drop_last=False,
+        pin_memory=False, drop_last=False,
     )
 
     print("Initializing model: {}".format(args.arch))
