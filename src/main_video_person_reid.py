@@ -38,7 +38,7 @@ parser.add_argument('--height', type=int, default=256,
                     help="height of an image (default: 256)")
 parser.add_argument('--width', type=int, default=128,
                     help="width of an image (default: 128)")
-parser.add_argument('--seq-len', type=int, default=12,
+parser.add_argument('--seq-len', type=int, default=13,
                     help="number of images to sample in a tracklet")
 parser.add_argument('--test-num-tracks', type=int, default=16,
                     help="number of tracklets to pass to GPU during test (to avoid OOM error)")
@@ -148,7 +148,7 @@ def main():
         VideoDataset(dataset.query, seq_len=args.seq_len,
                      sample='dense', transform=transform_test),
         batch_size=args.test_batch, shuffle=False, num_workers=args.workers,
-        pin_memory=False, drop_last=False,
+        pin_memory=pin_memory, drop_last=False,
     )
 
     galleryloader = DataLoader(
