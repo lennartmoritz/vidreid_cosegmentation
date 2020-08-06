@@ -38,7 +38,7 @@ parser.add_argument('--height', type=int, default=256,
                     help="height of an image (default: 256)")
 parser.add_argument('--width', type=int, default=128,
                     help="width of an image (default: 128)")
-parser.add_argument('--seq-len', type=int, default=14,
+parser.add_argument('--seq-len', type=int, default=12,
                     help="number of images to sample in a tracklet")
 parser.add_argument('--test-num-tracks', type=int, default=16,
                     help="number of tracklets to pass to GPU during test (to avoid OOM error)")
