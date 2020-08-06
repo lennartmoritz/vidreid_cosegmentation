@@ -155,7 +155,7 @@ def main():
         VideoDataset(dataset.gallery, seq_len=args.seq_len,
                      sample='dense', transform=transform_test),
         batch_size=args.test_batch, shuffle=False, num_workers=args.workers,
-        pin_memory=False, drop_last=False,
+        pin_memory=pin_memory, drop_last=False,
     )
 
     print("Initializing model: {}".format(args.arch))
