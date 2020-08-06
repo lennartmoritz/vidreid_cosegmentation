@@ -43,7 +43,7 @@ parser.add_argument('--seq-len', type=int, default=13,
 parser.add_argument('--test-num-tracks', type=int, default=16,
                     help="number of tracklets to pass to GPU during test (to avoid OOM error)")
 # Optimization options
-parser.add_argument('--max-epoch', default=1, type=int,
+parser.add_argument('--max-epoch', default=800, type=int,
                     help="maximum epochs to run")
 parser.add_argument('--start-epoch', default=0, type=int,
                     help="manual epoch number (useful on restarts)")
@@ -365,7 +365,7 @@ def test(model, queryloader, galleryloader, use_gpu, ranks=[1, 5, 10, 20]):
         print("Rank-{:<3}: {:.1%}".format(r, cmc[r-1]))
     print("------------------")
 
-    return cmc[0], mAp
+    return cmc[0], mAP
 
 
 if __name__ == '__main__':
