@@ -38,12 +38,12 @@ parser.add_argument('--height', type=int, default=256,
                     help="height of an image (default: 256)")
 parser.add_argument('--width', type=int, default=128,
                     help="width of an image (default: 128)")
-parser.add_argument('--seq-len', type=int, default=4,
+parser.add_argument('--seq-len', type=int, default=14,
                     help="number of images to sample in a tracklet")
 parser.add_argument('--test-num-tracks', type=int, default=16,
                     help="number of tracklets to pass to GPU during test (to avoid OOM error)")
 # Optimization options
-parser.add_argument('--max-epoch', default=800, type=int,
+parser.add_argument('--max-epoch', default=1, type=int,
                     help="maximum epochs to run")
 parser.add_argument('--start-epoch', default=0, type=int,
                     help="manual epoch number (useful on restarts)")
@@ -54,7 +54,7 @@ parser.add_argument('--train-batch', default=8, type=int,
 parser.add_argument('--test-batch', default=1, type=int, help="has to be 1")
 parser.add_argument('--lr', '--learning-rate', default=0.0003, type=float,
                     help="initial learning rate, use 0.0001 for rnn, use 0.0003 for pooling and attention")
-parser.add_argument('--stepsize', default=20, type=int,
+parser.add_argument('--stepsize', default=200, type=int,
                     help="stepsize to decay learning rate (>0 means this is enabled)")
 parser.add_argument('--gamma', default=0.1, type=float,
                     help="learning rate decay")
@@ -76,11 +76,11 @@ parser.add_argument('--seed', type=int, default=1, help="manual seed")
 parser.add_argument('--pretrained-model', type=str,
                     default=None, help='need to be set for loading pretrained models')
 parser.add_argument('--evaluate', action='store_true', help="evaluation only")
-parser.add_argument('--eval-step', type=int, default=1,
+parser.add_argument('--eval-step', type=int, default=100,
                     help="run evaluation for every N epochs (set to -1 to test after training)")
-parser.add_argument('--save-step', type=int, default=1)
-parser.add_argument('--save-dir', type=str, default='')
-parser.add_argument('--save-prefix', type=str, default='se_resnet50_cosam45_tp')
+parser.add_argument('--save-step', type=int, default=50)
+parser.add_argument('--save-dir', type=str, default='/net/fulu/storage/deeplearning/users/morlen/log')
+parser.add_argument('--save-prefix', type=str, default='model')
 parser.add_argument('--use-cpu', action='store_true', help="use cpu")
 parser.add_argument('--gpu-devices', default='0', type=str,
                     help='gpu device ids for CUDA_VISIBLE_DEVICES')
@@ -89,33 +89,25 @@ args = parser.parse_args()
 
 
 def main():
-    args.save_dir = args.arch + '_' + args.save_dir
-    args.save_prefix = args.arch + '_' + args.save_dir
+    args.save_dir = args.save_dir + '/' + args.arch
 
     torch.manual_seed(args.seed)
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_devices
+    # os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu_devices
     use_gpu = torch.cuda.is_available()
     if args.use_cpu:
         use_gpu = False
 
-    # create logger
-    log_name = 'test.log' if args.evaluate else 'train.log'
-    log_name += time.strftime('-%Y-%m-%d-%H-%M-%S')
-    sys.stdout = Logger(osp.join("scratch", args.save_dir, log_name))
-
-    # append date with save_dir
-    args.save_dir = 'scratch/' + utils.get_currenttime_prefix().replace(":", "-") + '_' + \
-        args.dataset + '_' + args.save_dir
+    # add data to save_dir
+    args.save_dir = args.save_dir + '_' + args.dataset + '_combined_multisteplr'
     if args.pretrained_model is not None:
         args.save_dir = os.path.dirname(args.pretrained_model)
 
     if not osp.exists(args.save_dir):
         os.makedirs(args.save_dir)
 
-    if not args.evaluate:
-        sys.stdout = Logger(osp.join(args.save_dir, 'log_train.txt'))
-    else:
-        sys.stdout = Logger(osp.join(args.save_dir, 'log_test.txt'))
+    log_name = 'test.log' if args.evaluate else 'train.log'
+    log_name += time.strftime('-%Y-%m-%d-%H-%M-%S')
+    sys.stdout = Logger(osp.join(args.save_dir, log_name))
     print("==========\nArgs:{}\n==========".format(args))
 
     if use_gpu:
@@ -215,7 +207,9 @@ def main():
 
     is_first_time = True
     for epoch in range(start_epoch, args.max_epoch):
-        print("==> Epoch {}/{}".format(epoch+1, args.max_epoch))
+        eta_seconds = (time.time() - start_time) * (args.max_epoch - epoch)
+        eta_str = str(datetime.timedelta(seconds=int(eta_seconds)))
+        print("==> Epoch {}/{} \teta {}".format(epoch+1, args.max_epoch, eta_str))
 
         train(model, criterion_xent, criterion_htri,
               optimizer, trainloader, use_gpu)
@@ -245,8 +239,7 @@ def main():
                 'state_dict': state_dict,
                 'rank1': rank1,
                 'epoch': epoch,
-            }, is_best, osp.join(args.save_dir, args.save_prefix + 'checkpoint_ep' + str(epoch+1) + '.pth.tar'))
-            # TODO: add log entry
+            }, is_best, osp.join(args.save_dir, args.save_prefix, 'model' + '.pth.tar-' + str(epoch+1)))
 
         is_first_time = False
         if not is_first_time:
@@ -283,7 +276,7 @@ def train(model, criterion_xent, criterion_htri, optimizer, trainloader, use_gpu
 
         losses.update(loss.item(), pids.size(0))
         if (batch_idx+1) % args.print_freq == 0:
-            print("Batch {}/{}\t Loss {:.6f} ({:.6f})".format(batch_idx +
+            print("Batch {}/{}\t Loss {:.6f} ({:.6f}) eta ".format(batch_idx +
                                                               1, len(trainloader), losses.val, losses.avg))
 
 

@@ -36,7 +36,7 @@ class PDESTRE(object):
     vid2cam_file = "reid/video2camid.pkl"
     tracklet_file = "reid/Tracklets.npy"
 
-    def __init__(self, root="E:/Bachelorarbeit - Daten/", split_id=0, **kwargs):
+    def __init__(self, root="/net/merkur/storage/deeplearning/datasets/reid", split_id=0, **kwargs):
         # load variables
         self.root = osp.abspath(osp.expanduser(root))
         self.dataset_dir = osp.join(self.root, self.dataset_dir)
