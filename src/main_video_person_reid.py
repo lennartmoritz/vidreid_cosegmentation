@@ -207,7 +207,7 @@ def main():
 
     is_first_time = True
     for epoch in range(start_epoch, args.max_epoch):
-        eta_seconds = (time.time() - start_time) * (args.max_epoch - epoch) / min(epoch, 1)
+        eta_seconds = (time.time() - start_time) * (args.max_epoch - epoch) / max(epoch, 1)
         eta_str = str(datetime.timedelta(seconds=int(eta_seconds)))
         print("==> Epoch {}/{} \teta {}".format(epoch+1, args.max_epoch, eta_str))
 
