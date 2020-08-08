@@ -38,7 +38,7 @@ parser.add_argument('--height', type=int, default=256,
                     help="height of an image (default: 256)")
 parser.add_argument('--width', type=int, default=128,
                     help="width of an image (default: 128)")
-parser.add_argument('--seq-len', type=int, default=13,
+parser.add_argument('--seq-len', type=int, default=4,
                     help="number of images to sample in a tracklet")
 parser.add_argument('--test-num-tracks', type=int, default=16,
                     help="number of tracklets to pass to GPU during test (to avoid OOM error)")
@@ -49,10 +49,10 @@ parser.add_argument('--start-epoch', default=0, type=int,
                     help="manual epoch number (useful on restarts)")
 parser.add_argument('--data-selection', type=str,
                     default='random', help="random/evenly")
-parser.add_argument('--train-batch', default=8, type=int,
+parser.add_argument('--train-batch', default=26, type=int,
                     help="train batch size")
 parser.add_argument('--test-batch', default=1, type=int, help="has to be 1")
-parser.add_argument('--lr', '--learning-rate', default=0.0003, type=float,
+parser.add_argument('--lr', '--learning-rate', default=0.0001, type=float,
                     help="initial learning rate, use 0.0001 for rnn, use 0.0003 for pooling and attention")
 parser.add_argument('--stepsize', default=200, type=int,
                     help="stepsize to decay learning rate (>0 means this is enabled)")
@@ -98,7 +98,7 @@ def main():
         use_gpu = False
 
     # add data to save_dir
-    args.save_dir = args.save_dir + '_' + args.dataset + '_combined_multisteplr'
+    args.save_dir = args.save_dir + '_' + args.dataset + '_combined_multisteplr1'
     if args.pretrained_model is not None:
         args.save_dir = os.path.dirname(args.pretrained_model)
 
@@ -207,7 +207,7 @@ def main():
 
     is_first_time = True
     for epoch in range(start_epoch, args.max_epoch):
-        eta_seconds = (time.time() - start_time) * (args.max_epoch - epoch)
+        eta_seconds = (time.time() - start_time) * (args.max_epoch - epoch) / min(epoch, 1)
         eta_str = str(datetime.timedelta(seconds=int(eta_seconds)))
         print("==> Epoch {}/{} \teta {}".format(epoch+1, args.max_epoch, eta_str))
 
@@ -276,7 +276,7 @@ def train(model, criterion_xent, criterion_htri, optimizer, trainloader, use_gpu
 
         losses.update(loss.item(), pids.size(0))
         if (batch_idx+1) % args.print_freq == 0:
-            print("Batch {}/{}\t Loss {:.6f} ({:.6f}) eta ".format(batch_idx +
+            print("Batch {}/{}\t Loss {:.6f} ({:.6f})".format(batch_idx +
                                                               1, len(trainloader), losses.val, losses.avg))
 
 
