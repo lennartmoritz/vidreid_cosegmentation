@@ -49,7 +49,7 @@ parser.add_argument('--start-epoch', default=0, type=int,
                     help="manual epoch number (useful on restarts)")
 parser.add_argument('--data-selection', type=str,
                     default='random', help="random/evenly")
-parser.add_argument('--train-batch', default=26, type=int,
+parser.add_argument('--train-batch', default=32, type=int,
                     help="train batch size")
 parser.add_argument('--test-batch', default=1, type=int, help="has to be 1")
 parser.add_argument('--lr', '--learning-rate', default=0.0001, type=float,
@@ -78,7 +78,7 @@ parser.add_argument('--pretrained-model', type=str,
 parser.add_argument('--evaluate', action='store_true', help="evaluation only")
 parser.add_argument('--eval-step', type=int, default=100,
                     help="run evaluation for every N epochs (set to -1 to test after training)")
-parser.add_argument('--save-step', type=int, default=50)
+parser.add_argument('--save-step', type=int, default=100)
 parser.add_argument('--save-dir', type=str, default='/net/fulu/storage/deeplearning/users/morlen/log')
 parser.add_argument('--save-prefix', type=str, default='model')
 parser.add_argument('--use-cpu', action='store_true', help="use cpu")
@@ -98,7 +98,7 @@ def main():
         use_gpu = False
 
     # add data to save_dir
-    args.save_dir = args.save_dir + '_' + args.dataset + '_combined_multisteplr3'
+    args.save_dir = args.save_dir + '_' + args.dataset + '_combined_multisteplr4'
     if args.pretrained_model is not None:
         args.save_dir = os.path.dirname(args.pretrained_model)
 

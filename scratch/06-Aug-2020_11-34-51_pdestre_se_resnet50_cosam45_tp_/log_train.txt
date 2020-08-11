@@ -1,0 +1,86 @@
+==========
+Args:Namespace(arch='se_resnet50_cosam45_tp', data_selection='random', dataset='pdestre', eval_step=100, evaluate=False, gamma=0.1, gpu_devices='0', height=256, lr=0.0003, margin=0.3, max_epoch=800, num_instances=4, pretrained_model=None, print_freq=78, save_dir='scratch/06-Aug-2020_11-34-51_pdestre_se_resnet50_cosam45_tp_', save_prefix='se_resnet50_cosam45_tp_se_resnet50_cosam45_tp_', save_step=1, seed=1, seq_len=4, start_epoch=0, stepsize=200, test_batch=1, test_num_tracks=16, train_batch=8, use_cpu=False, weight_decay=0.0005, width=128, workers=4)
+==========
+Currently using GPU 0
+Initializing dataset pdestre
+=> P-DESTRE loaded
+Dataset statistics:
+  ------------------------------
+  subset   | # ids | # tracklets
+  ------------------------------
+  train    |   237 |    10534
+  query    |   112 |     1961
+  gallery  |   194 |     4133
+  ------------------------------
+  total    |   349 |    16628
+  number of images per tracklet: 1 ~ 2436, average 76.0
+  ------------------------------
+Initializing model: se_resnet50_cosam45_tp
+instantiating SE_ResNet net typesenet50 from e:\GitHub\vidreid_cosegmentation\src\models\SE_ResNet.py
+attention type ['NONE', 'NONE', 'NONE', 'COSAM', 'COSAM']
+Initialized model with pretrained weights from http://data.lip6.fr/cadene/pretrainedmodels/se_resnet50-ce0d4300.pth
+setting stride of  Sequential(
+  (0): SEResNetBottleneck(
+    (conv1): Conv2d(1024, 512, kernel_size=(1, 1), stride=(2, 2), bias=False)
+    (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+    (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (conv3): Conv2d(512, 2048, kernel_size=(1, 1), stride=(1, 1), bias=False)
+    (bn3): BatchNorm2d(2048, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (relu): ReLU(inplace=True)
+    (se_module): SEModule(
+      (avg_pool): AdaptiveAvgPool2d(output_size=1)
+      (fc1): Conv2d(2048, 128, kernel_size=(1, 1), stride=(1, 1))
+      (relu): ReLU(inplace=True)
+      (fc2): Conv2d(128, 2048, kernel_size=(1, 1), stride=(1, 1))
+      (sigmoid): Sigmoid()
+    )
+    (downsample): Sequential(
+      (0): Conv2d(1024, 2048, kernel_size=(1, 1), stride=(2, 2), bias=False)
+      (1): BatchNorm2d(2048, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    )
+  )
+  (1): SEResNetBottleneck(
+    (conv1): Conv2d(2048, 512, kernel_size=(1, 1), stride=(1, 1), bias=False)
+    (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+    (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (conv3): Conv2d(512, 2048, kernel_size=(1, 1), stride=(1, 1), bias=False)
+    (bn3): BatchNorm2d(2048, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (relu): ReLU(inplace=True)
+    (se_module): SEModule(
+      (avg_pool): AdaptiveAvgPool2d(output_size=1)
+      (fc1): Conv2d(2048, 128, kernel_size=(1, 1), stride=(1, 1))
+      (relu): ReLU(inplace=True)
+      (fc2): Conv2d(128, 2048, kernel_size=(1, 1), stride=(1, 1))
+      (sigmoid): Sigmoid()
+    )
+  )
+  (2): SEResNetBottleneck(
+    (conv1): Conv2d(2048, 512, kernel_size=(1, 1), stride=(1, 1), bias=False)
+    (bn1): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (conv2): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+    (bn2): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (conv3): Conv2d(512, 2048, kernel_size=(1, 1), stride=(1, 1), bias=False)
+    (bn3): BatchNorm2d(2048, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (relu): ReLU(inplace=True)
+    (se_module): SEModule(
+      (avg_pool): AdaptiveAvgPool2d(output_size=1)
+      (fc1): Conv2d(2048, 128, kernel_size=(1, 1), stride=(1, 1))
+      (relu): ReLU(inplace=True)
+      (fc2): Conv2d(128, 2048, kernel_size=(1, 1), stride=(1, 1))
+      (sigmoid): Sigmoid()
+    )
+  )
+)  to  1
+[(64, 32), (64, 32), (32, 16), (16, 8), (16, 8)]
+instantiating CosegAttention
+instantiating Identity
+instantiating Identity
+instantiating Identity
+instantiating COSAM with in-channels: 1024, t = 4, hw = (16, 8)
+instantiating COSAM with in-channels: 2048, t = 4, hw = (16, 8)
+instantiating AggregationTP
+Model size: 28.93872M
+==> Epoch 1/800
+Batch 78/118	 Loss 5.732369 (6.168459)
