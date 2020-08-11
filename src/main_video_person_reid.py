@@ -54,7 +54,7 @@ parser.add_argument('--train-batch', default=32, type=int,
 parser.add_argument('--test-batch', default=1, type=int, help="has to be 1")
 parser.add_argument('--lr', '--learning-rate', default=0.0001, type=float,
                     help="initial learning rate, use 0.0001 for rnn, use 0.0003 for pooling and attention")
-parser.add_argument('--stepsize', default=350, type=int,
+parser.add_argument('--stepsize', default=200, type=int,
                     help="stepsize to decay learning rate (>0 means this is enabled)")
 parser.add_argument('--gamma', default=0.1, type=float,
                     help="learning rate decay")
