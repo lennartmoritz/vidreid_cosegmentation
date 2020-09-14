@@ -1,15 +1,14 @@
 from __future__ import print_function, absolute_import
 import os
 import glob
-import re
-import sys
 import urllib
 import tarfile
 import zipfile
 import os.path as osp
 from scipy.io import loadmat
 import numpy as np
-import pickle
+import socket
+from tqdm import tqdm
 
 from utils import mkdir_if_missing, write_json, read_json
 
@@ -30,164 +29,148 @@ class PDESTRE(object):
         - images: ? (train) + ? (query) + ? (gallery).
         - cameras (locations/videos): 75
     """
-    dataset_dir = "P-DESTRE-processed"
-    splits_dir = "Splits"
-    image_dir = "reid/BBox_images"
-    vid2cam_file = "reid/video2camid.pkl"
-    tracklet_file = "reid/Tracklets.npy"
 
-    def __init__(self, root="/net/merkur/storage/deeplearning/datasets/reid", split_id=0, **kwargs):
-        # load variables
-        self.root = osp.abspath(osp.expanduser(root))
-        self.dataset_dir = osp.join(self.root, self.dataset_dir)
-        self.splits_dir = osp.join(self.dataset_dir, self.splits_dir)
-        self.image_dir = osp.join(self.dataset_dir, self.image_dir)
-        self.vid2cam_file = osp.join(self.dataset_dir, self.vid2cam_file)
-        self.tracklet_file = osp.join(self.dataset_dir, self.tracklet_file)
-        self.split_id = split_id
+    if (socket.gethostname() == "DESKTOP-F59FNSK"):
+        root = 'E:/Bachelorarbeit - Daten/P-DESTRE-processed/Extract_PIDS/'
+        split_path = 'E:/Bachelorarbeit - Daten/P-DESTRE-processed/Splits/'
+    else:
+        split_path = '/net/merkur/storage/deeplearning/datasets/reid/P-DESTRE-processed/Splits/'
+        root = '/net/merkur/storage/deeplearning/datasets/reid/P-DESTRE-processed/reid/Extract_PIDS/'
 
-        # check files
-        required_files = [
-            self.dataset_dir, self.splits_dir,
-            self.image_dir, self.vid2cam_file,
-            self.tracklet_file
-        ]
-        self.check_before_run(required_files)
+    def __init__(self, split_id=0, min_seq_len=0):
+        self._check_before_run()
+        max_splits = 5
+        if split_id > (max_splits):
+            raise ValueError(
+                "split_id exceeds range, received {}, but expected between 0 and {}".format(split_id, (max_splits) - 1))
 
-        # load preprocessed data
-        self.all_tracklets = np.load(self.tracklet_file, mmap_mode="r", allow_pickle=True)
-        with open(self.vid2cam_file, "rb") as f:
-            self.video2camid = pickle.load(f)
+        Train_name = self.split_path + 'Train_' + str(split_id)+'.txt'
+        train_dirs = self._read_seqmaps(Train_name)
+        query_name = self.split_path + 'Query_' + str(split_id) + '.txt'
+        query_dirs = self._read_seqmaps(query_name)
+        gallery_name = self.split_path + 'Gallery_' + str(split_id) + '.txt'
+        test_dirs = self._read_seqmaps(gallery_name)
 
-        # get tracklets for selected train/query/gallery split
-        train_split_file = osp.join(self.splits_dir, f"Train_{self.split_id}.txt")
-        track_train = self.extract_tracklets(train_split_file)
+        # COMMENT: [train_dirs, query_dirs, test_dirs] now contain the video names like "14-11-2019-2-1"
+    
+        print("# train videos: {}, # Query videos {}, # Gallery videos {}".format(len(train_dirs), len(query_dirs), len(test_dirs)))
+        # print("train")
+        train_dir2pid = list()
+        train, num_train_tracklets, num_train_pids, num_imgs_train, train_pid_list = \
+            self._process_data(train_dirs, train_dir2pid, 0)
+        # print("query")
+        test_dir2pid = list()
+        query, num_query_tracklets, num_query_pids, num_imgs_query, test_pid_list = \
+            self._process_data(query_dirs, test_dir2pid, 0)
+        # print("gallery")
+        gallery, num_gallery_tracklets, num_gallery_pids, num_imgs_gallery, gal_pid_list = \
+            self._process_data(test_dirs, test_pid_list, 1)
 
-        query_split_file = osp.join(self.splits_dir, f"Query_{self.split_id}.txt")
-        track_query = self.extract_tracklets(query_split_file)
-
-        gallery_split_file = osp.join(self.splits_dir, f"Gallery_{self.split_id}.txt")
-        track_gallery = self.extract_tracklets(gallery_split_file)
-
-        # get the data
-        train, self.num_train_pids, num_train_imgs = self.process_data(track_train, relabel=True)
-
-        query, self.num_query_pids, num_query_imgs = self.process_data(track_query, relabel=False)
-
-        gallery, self.num_gallery_pids, num_gallery_imgs = self.process_data(track_gallery, relabel=False)
-
-        self.train = train
-        num_train_tracklets = len(train)
-
-        self.query = query
-        num_query_tracklets = len(query)
-
-        self.gallery = gallery
-        num_gallery_tracklets = len(gallery)
-
-        num_imgs_per_tracklet = num_train_imgs + num_query_imgs + num_gallery_imgs
+        num_imgs_per_tracklet = num_imgs_train + num_imgs_query + num_imgs_gallery
         min_num = np.min(num_imgs_per_tracklet)
         max_num = np.max(num_imgs_per_tracklet)
         avg_num = np.mean(num_imgs_per_tracklet)
 
-        num_total_pids = self.num_train_pids + self.num_query_pids
+        num_total_pids = num_train_pids + num_query_pids+num_gallery_pids
         num_total_tracklets = num_train_tracklets + num_query_tracklets + num_gallery_tracklets
 
-        print("=> P-DESTRE loaded")
+        print("=> PDESTRE loaded")
         print("Dataset statistics:")
         print("  ------------------------------")
         print("  subset   | # ids | # tracklets")
         print("  ------------------------------")
-        print("  train    | {:5d} | {:8d}".format(self.num_train_pids, num_train_tracklets))
-        print("  query    | {:5d} | {:8d}".format(self.num_query_pids, num_query_tracklets))
-        print("  gallery  | {:5d} | {:8d}".format(self.num_gallery_pids, num_gallery_tracklets))
+        print("  train    | {:5d} | {:8d}".format(num_train_pids, num_train_tracklets))
+        print("  query    | {:5d} | {:8d}".format(num_query_pids, num_query_tracklets))
+        print("  gallery  | {:5d} | {:8d}".format(num_gallery_pids, num_gallery_tracklets))
         print("  ------------------------------")
         print("  total    | {:5d} | {:8d}".format(num_total_pids, num_total_tracklets))
         print("  number of images per tracklet: {} ~ {}, average {:.1f}".format(min_num, max_num, avg_num))
         print("  ------------------------------")
 
-    def extract_tracklets(self, split_file):
-        # find all camids referenced by the split
-        videos_in_split = []
-        with open(split_file, "r") as f:
-            for line in f:
-                new_line = line.rstrip()
-                videos_in_split.append(new_line)
-        videos_in_split.sort()
-        camids_in_split = [self.video2camid[name + ".MP4"] for name in videos_in_split]
+        self.train = train
+        self.query = query
+        self.gallery = gallery
 
-        # extract the tracklets with matching camids
-        requested_tracklets = np.empty((0, 4), int)
-        for camid in camids_in_split:
-            pos = np.where(self.all_tracklets[:, 3] == camid)
-            new_tracklet = self.all_tracklets[pos]
-            requested_tracklets = np.concatenate((requested_tracklets, new_tracklet))
+        self.num_train_pids = num_train_pids
+        self.num_query_pids = num_query_pids
+        self.num_gallery_pids = num_gallery_pids
 
-        assert requested_tracklets.size != 0, f"Error: Found no tracklets for {split_file}"
-        return requested_tracklets
-
-    def process_data(self, tracklets, relabel=False, min_seq_len=0):
-        num_tracklets = tracklets.shape[0]
-        pid_list = list(set(tracklets[:, 2].tolist()))
-        num_pids = len(pid_list)
-
-        if relabel:
-            pid2label = {pid: label for label, pid in enumerate(pid_list)}
-
-        processed_tracklets = []
-        num_imgs_per_tracklet = []
-
-        for index in range(num_tracklets):
-            data = tracklets[index, ...]
-            start_index, end_index, pid, camid = data
-            if pid == -1:
-                continue  # junk images are just ignored
-            assert 0 <= camid <= 74
-
-            img_names = [
-                f"{pid:04}C{camid:02}F{frame_pos:05}.jpg"
-                for frame_pos in range(start_index, end_index + 1)
-            ]
-
-            if relabel:
-                pid = pid2label[pid]
-
-            # make sure image names correspond to the same person
-            pnames = [img_name[:4] for img_name in img_names]
-            assert len(
-                set(pnames)
-            ) == 1, 'Error: a single tracklet contains different person images'
-
-            # make sure all images are captured under the same camera
-            camnames = [img_name[5:7] for img_name in img_names]
-            assert len(
-                set(camnames)
-            ) == 1, 'Error: images are captured under different cameras!'
-
-            # append image names with directory information
-            img_paths = [
-                osp.join(self.image_dir, img_name[:4], img_name)
-                for img_name in img_names
-            ]
-            if len(img_paths) >= min_seq_len:
-                img_paths = tuple(img_paths)
-                processed_tracklets.append((img_paths, pid, camid))
-                num_imgs_per_tracklet.append(len(img_paths))
-
-        return processed_tracklets, num_pids, num_imgs_per_tracklet
-
-    def check_before_run(self, required_files):
-        """Checks if required files exist before going deeper.
-
-        Args:
-            required_files (str or list): string file name(s).
+    def _read_seqmaps(self, fname):
         """
-        if isinstance(required_files, str):
-            required_files = [required_files]
+        seqmap: list the sequence name to be evaluated
+        """
+        assert os.path.exists(fname), 'File %s not exists!' % fname
+        with open(fname, 'r') as fid:
+            lines = [line.strip() for line in fid.readlines()]
+            seqnames = lines
+        return seqnames
 
-        for fpath in required_files:
-            if not osp.exists(fpath):
-                raise RuntimeError('"{}" is not found'.format(fpath))
+    def _check_before_run(self):
+        """Check if all files are available before going deeper"""
+        if not osp.exists(self.root):
+            raise RuntimeError("'{}' is not available".format(self.root))
+
+    def _process_data(self, dirnames, dir2pid, test_flag):
+        tracklets = []
+        num_imgs_per_tracklet = []
+        # convert PID
+        PID_LIST = list()
+        for dirname in dirnames:
+            pid_path = osp.join(self.root, dirname)
+            P_ID = os.path.basename(pid_path)[:-2]
+            pid_dirnames = os.listdir(pid_path)
+            for pidfolder in pid_dirnames:
+                if int(pidfolder) > 0:
+                    pid_folder = P_ID+'-'+pidfolder
+                    pid_int = pid_folder.split('-')
+                    pid = (("".join(pid_int)))
+                    if pid not in dir2pid:
+                        dir2pid.append(pid)
+                    if test_flag == 1:
+                        if pid not in PID_LIST:
+                            PID_LIST.append(pid)
+        if test_flag == 1:
+            test_dirname2pid = {dirname: i for i, dirname in enumerate(PID_LIST)}
+        dirname2pid = {dirname: i for i, dirname in enumerate(dir2pid)}
+        # print(dirname2pid)
+
+        # COMMENT: "dirname2pid" contains pids for all subjects in the given videos PLUS any pids from the "dir2pid" input parameter (only for gallery processing)
+        #           Subjects will keep their PID throughout sequences but not throughout days or sessions
+
+        nums_pid = 0
+        for dirname in tqdm(dirnames):
+            pid_path = osp.join(self.root, dirname)
+            Sequence_id = os.path.basename(pid_path)[-1]
+            P_ID = os.path.basename(pid_path)[:-2]
+            pid_dirnames = os.listdir(pid_path)
+            for pidfolder in pid_dirnames:
+                if int(pidfolder) > 0:
+                    person_dir = osp.join(pid_path, pidfolder)
+                    img_list = glob.glob(osp.join(person_dir, '*.jpg'))
+                    img_names_list = list()
+                    for imag in img_list:
+                        Input_im_size = os.path.getsize(imag)
+                        if Input_im_size > 0:
+                            img_names_list.append(imag)
+                        img_names = img_names_list
+                    assert len(img_names) > 0
+                    img_names = tuple(img_names)
+                    pid_folder = P_ID + '-' + pidfolder
+                    pid_int = pid_folder.split('-')
+                    pid = (("".join(pid_int)))
+                    pid = dirname2pid[pid]
+                    tracklets.append((img_names, pid, Sequence_id))
+                    num_imgs_per_tracklet.append(len(img_names))
+                    nums_pid = nums_pid + 1
+        # COMMENT: tracklets contain all frames depicting a subject within the same video file i.e. the same sequence
+
+        num_tracklets = len(tracklets)
+        if test_flag == 1:
+            num_pids = len(test_dirname2pid)
+        else:
+            num_pids = len(dirname2pid)
+        pid_dirlt = dir2pid
+        return tracklets, num_tracklets, num_pids, num_imgs_per_tracklet, pid_dirlt
 
 
 class Mars(object):
