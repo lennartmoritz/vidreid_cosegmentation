@@ -37,7 +37,8 @@ class PDESTRE(object):
         split_path = '/net/merkur/storage/deeplearning/datasets/reid/P-DESTRE-processed/Splits/'
         root = '/net/merkur/storage/deeplearning/datasets/reid/P-DESTRE-processed/reid/Extract_PIDS/'
 
-    def __init__(self, split_id=0, min_seq_len=0):
+    def __init__(self, split_id=1, min_seq_len=0):
+        print(f"Split-Id: {split_id}")
         self._check_before_run()
         max_splits = 5
         if split_id > (max_splits):

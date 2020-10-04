@@ -98,7 +98,7 @@ def main():
         use_gpu = False
 
     # add data to save_dir
-    args.save_dir = args.save_dir + '_' + args.dataset + '_combined_multisteplr7'
+    args.save_dir = args.save_dir + '_' + args.dataset + '_combined_multisteplr8'
     if args.pretrained_model is not None:
         args.save_dir = os.path.dirname(args.pretrained_model)
 
@@ -121,18 +121,19 @@ def main():
     dataset = data_manager.init_dataset(name=args.dataset)
 
     print("Train Transforms: \n\
+        Random2DTranslation, \n\
+        RandomHorizontalFlip, \n\
         ToTensor, \n\
-        normalize, \n\
-        RandomErasing(p=0.5, scale=(0.02, 0.4), ratio=(0.3, 3.3), value=[0.485, 0.456, 0.406])\
+        normalize\
         ")
 
     transform_train = T.Compose([
-        # T.Random2DTranslation(args.height, args.width),
-        # T.RandomHorizontalFlip(),
-        T.Resize((args.height, args.width)),
+        T.Random2DTranslation(args.height, args.width),
+        T.RandomHorizontalFlip(),
+        # T.Resize((args.height, args.width)),
         T.ToTensor(),
         T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        T.RandomErasing(p=0.5, scale=(0.02, 0.4), ratio=(0.3, 3.3), value=[0.485, 0.456, 0.406])
+        # T.RandomErasing(p=0.5, scale=(0.02, 0.4), ratio=(0.3, 3.3), value=[0.485, 0.456, 0.406])
     ])
 
     transform_test = T.Compose([
