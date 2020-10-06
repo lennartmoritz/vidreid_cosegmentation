@@ -98,7 +98,7 @@ def main():
         use_gpu = False
 
     # add data to save_dir
-    args.save_dir = args.save_dir + '_' + args.dataset + '_combined_multisteplr9'
+    args.save_dir = args.save_dir + '_' + args.dataset + '_combined_multisteplr10'
     if args.pretrained_model is not None:
         args.save_dir = os.path.dirname(args.pretrained_model)
 
